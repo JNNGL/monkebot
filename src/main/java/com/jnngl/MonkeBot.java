@@ -131,6 +131,9 @@ public class MonkeBot extends ListenerAdapter {
                     BufferedImage image = new BufferedImage(frame.getWidth(), frame.getHeight(), BufferedImage.TYPE_INT_ARGB);
                     System.arraycopy(frame.getData(), 0, ((DataBufferInt) image.getRaster().getDataBuffer()).getData(), 0, frame.getWidth() * frame.getHeight());
                     delays.add(frame.getDelay() * 10);
+                    frames.add(image);
+                    width = Math.max(width, image.getWidth());
+                    height = Math.max(height, image.getHeight());
                 }
             } catch (InvalidSignatureException e) {
                 byte[] bytes = IOUtils.toByteArray(new URL(url));
