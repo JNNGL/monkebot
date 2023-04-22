@@ -28,6 +28,11 @@ import java.util.*;
 import java.util.List;
 
 public class MonkeBot extends ListenerAdapter {
+    private static final Map<String, String> KEYWORDS = Map.of(
+            "//tenor.com/", "meta itemProp=\"contentUrl\" content=\"",
+            "//imgur.com/", "meta property=\"og:video:secure_url\" data-react-helmet=\"true\" content=\""
+    );
+
     private static final FrameConverter<BufferedImage> FRAME_CONVERTER = new Java2DFrameConverter();
     private static final Font FONT;
 
@@ -102,12 +107,15 @@ public class MonkeBot extends ListenerAdapter {
             return;
         }
 
-        if (url.contains("//tenor.com/")) {
-            try {
-                String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
-                url = html.split("meta itemProp=\"contentUrl\" content=\"", 2)[1].split("\"", 2)[0];
-            } catch (IOException e) {
-                return;
+        for (Map.Entry<String, String> keyword : KEYWORDS.entrySet()) {
+            if (url.contains(keyword.getKey())) {
+                try {
+                    String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
+                    url = html.split(keyword.getValue(), 2)[1].split("\"", 2)[0];
+                    break;
+                } catch (IOException e) {
+                    return;
+                }
             }
         }
 
