@@ -54,9 +54,7 @@ public class MonkeBot extends ListenerAdapter {
 
     public Optional<String> getAttachmentUrl(Message message) {
         for (Message.Attachment attachment : message.getAttachments()) {
-            if (attachment.isImage()) {
-                return Optional.of(attachment.getUrl());
-            }
+            return Optional.of(attachment.getUrl());
         }
 
         return Optional.empty();
