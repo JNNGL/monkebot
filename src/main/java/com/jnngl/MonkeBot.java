@@ -1,5 +1,6 @@
 package com.jnngl;
 
+import com.jnngl.reader.FrameReader;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
@@ -9,8 +10,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.io.IOUtils;
-import org.bytedeco.javacv.*;
-import org.bytedeco.javacv.Frame;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
@@ -26,15 +25,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MonkeBot extends ListenerAdapter {
-    private static final Map<String, String> KEYWORDS = Map.of(
-            "//tenor.com/", "meta itemProp=\"contentUrl\" content=\"",
-            "//imgur.com/", "meta property=\"og:video:secure_url\" data-react-helmet=\"true\" content=\"",
-            "//giphy.com/", "meta property=\"og:url\" content=\""
+    private static final Map<String, Pattern> KEYWORDS = Map.of(
+            "//tenor.com/", Pattern.compile("meta itemProp=\"contentUrl\" content=\"(.+?)\""),
+            "//imgur.com/", Pattern.compile("meta property=\"og:(?>video|image)\" data-react-helmet=\"true\" content=\"(.+?)(\\?fb)?\""),
+            "//giphy.com/", Pattern.compile("meta property=\"og:video\" content=\"(.+?)\"")
     );
-
-    private static final FrameConverter<BufferedImage> FRAME_CONVERTER = new Java2DFrameConverter();
     private static final Font FONT;
 
     static {
@@ -111,11 +110,16 @@ public class MonkeBot extends ListenerAdapter {
             return;
         }
 
-        for (Map.Entry<String, String> keyword : KEYWORDS.entrySet()) {
+        for (Map.Entry<String, Pattern> keyword : KEYWORDS.entrySet()) {
             if (url.contains(keyword.getKey())) {
                 try {
                     String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
-                    url = html.split(keyword.getValue(), 2)[1].split("\"", 2)[0];
+                    Matcher matcher = keyword.getValue().matcher(html);
+                    if (!matcher.find()) {
+                        continue;
+                    }
+
+                    url = matcher.group(1);
                     break;
                 } catch (IOException e) {
                     return;
@@ -124,13 +128,11 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(new URL(url).openStream())) {
+             FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
             List<String> lines = Arrays.asList(text.split("\n"));
             Collections.reverse(lines);
 
-            grabber.start();
-
-            BufferedImage textImage = new BufferedImage(grabber.getImageWidth(), grabber.getImageHeight(), BufferedImage.TYPE_INT_ARGB);
+            BufferedImage textImage = new BufferedImage(reader.getWidth(), reader.getHeight(), BufferedImage.TYPE_INT_ARGB);
             Graphics2D textGraphics = textImage.createGraphics();
             textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             textGraphics.setFont(FONT);
@@ -151,7 +153,7 @@ public class MonkeBot extends ListenerAdapter {
             }
 
             assert bounds != null;
-            Font font = FONT.deriveFont(Math.min(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth(), 40.0F));
+            Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
             textGraphics.setFont(font);
             bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
             AffineTransform transform = textGraphics.getTransform();
@@ -178,18 +180,16 @@ public class MonkeBot extends ListenerAdapter {
             encoder.start(outputStream);
             encoder.setRepeat(0);
             encoder.setSize(textImage.getWidth(), textImage.getHeight());
-            encoder.setFrameRate((float) grabber.getFrameRate());
+            encoder.setFrameRate(reader.getFrameRate());
 
-            Frame frame;
-            while ((frame = grabber.grabFrame(false, true, true, false, false)) != null) {
-                BufferedImage image = FRAME_CONVERTER.convert(frame);
-                Graphics2D graphics = image.createGraphics();
+            BufferedImage frame;
+            while ((frame = reader.readFrame()) != null) {
+                Graphics2D graphics = frame.createGraphics();
                 graphics.drawImage(textImage, 0, 0, null);
                 graphics.dispose();
-                encoder.addFrame(image);
+                encoder.addFrame(frame);
             }
 
-            grabber.stop();
             encoder.finish();
 
             byte[] bytes = outputStream.toByteArray();
@@ -200,7 +200,7 @@ public class MonkeBot extends ListenerAdapter {
                 IOUtils.write(bytes, new FileOutputStream("data/monke/" + filename));
                 event.getMessage().reply("https://api.jnngl.me/monke/" + filename).queue();
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             event.getMessage().reply("Не получилось добавить текст на говногифку: " + e.getMessage()).queue();
         }
     }
