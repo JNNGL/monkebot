@@ -30,7 +30,8 @@ import java.util.List;
 public class MonkeBot extends ListenerAdapter {
     private static final Map<String, String> KEYWORDS = Map.of(
             "//tenor.com/", "meta itemProp=\"contentUrl\" content=\"",
-            "//imgur.com/", "meta property=\"og:video:secure_url\" data-react-helmet=\"true\" content=\""
+            "//imgur.com/", "meta property=\"og:video:secure_url\" data-react-helmet=\"true\" content=\"",
+            "//giphy.com/", "meta property=\"og:url\" content=\""
     );
 
     private static final FrameConverter<BufferedImage> FRAME_CONVERTER = new Java2DFrameConverter();
