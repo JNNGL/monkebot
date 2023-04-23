@@ -98,12 +98,15 @@ public class MonkeBot extends ListenerAdapter {
         } else if (!event.getMessage().getAttachments().isEmpty()) {
             url = getAttachmentUrl(event.getMessage()).orElse("");
         } else {
-            event.getMessage().reply("Ссылка на гифку не указана.").queue();
-            return;
+            List<Message> messages = event.getChannel().getHistory().retrievePast(3).complete();
+            url = messages.stream()
+                    .filter(m -> m.getAuthor().getIdLong() == event.getAuthor().getIdLong())
+                    .dropWhile(m -> m.getAttachments().isEmpty() && !m.getContentRaw().startsWith("http"))
+                    .findFirst().map(Message::getContentRaw).orElse("");
         }
 
         if (!url.startsWith("https://") && !url.startsWith("http://")) {
-            event.getMessage().reply("Указана неверная ссылка.").queue();
+            event.getMessage().reply("Ссылка не указана или указана неверно.").queue();
             return;
         }
 
@@ -174,7 +177,7 @@ public class MonkeBot extends ListenerAdapter {
             encoder.start(outputStream);
             encoder.setRepeat(0);
             encoder.setSize(textImage.getWidth(), textImage.getHeight());
-            encoder.setDelay((int) (1000 / grabber.getFrameRate()));
+            encoder.setFrameRate((float) grabber.getFrameRate());
 
             Frame frame;
             while ((frame = grabber.grabFrame(false, true, true, false, false)) != null) {
