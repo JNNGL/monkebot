@@ -98,7 +98,7 @@ public class MonkeBot extends ListenerAdapter {
         } else if (!event.getMessage().getAttachments().isEmpty()) {
             url = getAttachmentUrl(event.getMessage()).orElse("");
         } else {
-            List<Message> messages = event.getChannel().getHistory().retrievePast(3).complete();
+            List<Message> messages = event.getChannel().getHistory().retrievePast(6).complete();
             url = messages.stream()
                     .filter(m -> m.getAuthor().getIdLong() == event.getAuthor().getIdLong())
                     .dropWhile(m -> m.getAttachments().isEmpty() && !m.getContentRaw().startsWith("http"))
