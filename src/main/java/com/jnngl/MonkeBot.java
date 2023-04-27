@@ -85,13 +85,8 @@ public class MonkeBot extends ListenerAdapter {
 
         if (args[1].startsWith("https://") || args[1].startsWith("http://")) {
             args = args[1].split(" ", 2);
-            if (args.length == 1) {
-                event.getMessage().reply("Текст не указан.").queue();
-                return;
-            }
-
             url = args[0];
-            text = args[1];
+            text = args.length == 1 ? "" : args[1];
         } else if (event.getMessage().getReferencedMessage() != null) {
             Message referenced = event.getMessage().getReferencedMessage();
             url = getAttachmentUrl(referenced).orElseGet(() -> event.getMessage().getReferencedMessage().getContentRaw());
