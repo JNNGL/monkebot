@@ -124,52 +124,55 @@ public class MonkeBot extends ListenerAdapter {
 
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
              FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
-            List<String> lines = Arrays.asList(text.split("\n"));
-            Collections.reverse(lines);
-
             BufferedImage textImage = new BufferedImage(reader.getWidth(), reader.getHeight(), BufferedImage.TYPE_INT_ARGB);
-            Graphics2D textGraphics = textImage.createGraphics();
-            textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            textGraphics.setFont(FONT);
-            textGraphics.setColor(Color.WHITE);
-            textGraphics.getFontMetrics().getHeight();
 
-            Rectangle2D bounds = null;
-            for (String line : lines) {
-                Rectangle2D currentBounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
-                if (bounds == null) {
-                    bounds = currentBounds;
-                    continue;
-                }
+            if (!text.isEmpty()) {
+                List<String> lines = Arrays.asList(text.split("\n"));
+                Collections.reverse(lines);
 
-                if (currentBounds.getWidth() > bounds.getWidth()) {
-                    bounds = currentBounds;
-                }
-            }
-
-            assert bounds != null;
-            Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
-            textGraphics.setFont(font);
-            bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
-            AffineTransform transform = textGraphics.getTransform();
-            transform.translate(0, textImage.getHeight() + (int) (bounds.getHeight() / 2.0D));
-            for (String line : lines) {
-                bounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
-                int horizontalCenter = textImage.getWidth() / 2 - (int) bounds.getWidth() / 2;
-                transform.translate(horizontalCenter, -bounds.getHeight());
-                textGraphics.setTransform(transform);
-                textGraphics.setColor(Color.BLACK);
-                FontRenderContext frc = textGraphics.getFontRenderContext();
-                TextLayout tl = new TextLayout(line, font, frc);
-                Shape shape = tl.getOutline(null);
-                textGraphics.setStroke(new BasicStroke(2.0F));
-                textGraphics.draw(shape);
+                Graphics2D textGraphics = textImage.createGraphics();
+                textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                textGraphics.setFont(FONT);
                 textGraphics.setColor(Color.WHITE);
-                textGraphics.fill(shape);
-                transform.translate(-horizontalCenter, 0);
-            }
+                textGraphics.getFontMetrics().getHeight();
 
-            textGraphics.dispose();
+                Rectangle2D bounds = null;
+                for (String line : lines) {
+                    Rectangle2D currentBounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
+                    if (bounds == null) {
+                        bounds = currentBounds;
+                        continue;
+                    }
+
+                    if (currentBounds.getWidth() > bounds.getWidth()) {
+                        bounds = currentBounds;
+                    }
+                }
+
+                assert bounds != null;
+                Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
+                textGraphics.setFont(font);
+                bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
+                AffineTransform transform = textGraphics.getTransform();
+                transform.translate(0, textImage.getHeight() + (int) (bounds.getHeight() / 2.0D));
+                for (String line : lines) {
+                    bounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
+                    int horizontalCenter = textImage.getWidth() / 2 - (int) bounds.getWidth() / 2;
+                    transform.translate(horizontalCenter, -bounds.getHeight());
+                    textGraphics.setTransform(transform);
+                    textGraphics.setColor(Color.BLACK);
+                    FontRenderContext frc = textGraphics.getFontRenderContext();
+                    TextLayout tl = new TextLayout(line, font, frc);
+                    Shape shape = tl.getOutline(null);
+                    textGraphics.setStroke(new BasicStroke(2.0F));
+                    textGraphics.draw(shape);
+                    textGraphics.setColor(Color.WHITE);
+                    textGraphics.fill(shape);
+                    transform.translate(-horizontalCenter, 0);
+                }
+
+                textGraphics.dispose();
+            }
 
             AnimatedGifEncoder encoder = new AnimatedGifEncoder();
             encoder.start(outputStream);
