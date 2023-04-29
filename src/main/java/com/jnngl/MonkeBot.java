@@ -75,17 +75,21 @@ public class MonkeBot extends ListenerAdapter {
             args = args[1].split(" ", 2);
             url = args[0];
             text = args.length == 1 ? "" : args[1];
+            System.out.println("URL from message: " + url);
         } else if (message.getReferencedMessage() != null) {
             Message referenced = message.getReferencedMessage();
             url = getAttachmentUrl(referenced).orElseGet(referenced::getContentRaw);
+            System.out.println("URL from referenced message: " + url);
         } else if (!message.getAttachments().isEmpty()) {
             url = getAttachmentUrl(message).orElse("");
+            System.out.println("URL from attachment: " + url);
         } else {
             List<Message> messages = message.getChannel().getHistory().retrievePast(6).complete();
             url = messages.stream()
                     .filter(m -> m.getAuthor().getIdLong() == message.getAuthor().getIdLong())
                     .dropWhile(m -> m.getAttachments().isEmpty() && !m.getContentRaw().startsWith("http"))
                     .findFirst().map(Message::getContentRaw).orElse("");
+            System.out.println("URL from message history: " + url);
         }
 
         if (!url.startsWith("https://") && !url.startsWith("http://")) {
@@ -94,6 +98,7 @@ public class MonkeBot extends ListenerAdapter {
 
         for (Map.Entry<String, Pattern> keyword : KEYWORDS.entrySet()) {
             if (url.contains(keyword.getKey())) {
+                System.out.println("Getting raw GIF url from " + keyword.getKey());
                 try {
                     String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
                     Matcher matcher = keyword.getValue().matcher(html);
@@ -104,6 +109,7 @@ public class MonkeBot extends ListenerAdapter {
                     url = matcher.group(1);
                     break;
                 } catch (IOException e) {
+                    e.printStackTrace();
                     return null;
                 }
             }
@@ -173,6 +179,7 @@ public class MonkeBot extends ListenerAdapter {
     }
 
     public String processMessage(Message message) throws Exception {
+        System.out.println("Processing command: " + message.getContentRaw());
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
         if (args == null) {
