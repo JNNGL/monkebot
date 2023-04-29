@@ -1,6 +1,7 @@
 package com.jnngl;
 
 import com.jnngl.reader.FrameReader;
+import com.jnngl.util.FutureUtil;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
@@ -8,7 +9,6 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
-import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -67,147 +67,168 @@ public class MonkeBot extends ListenerAdapter {
         return Optional.empty();
     }
 
+    public String[] mapMessageArguments(Message message, String[] args) throws Exception {
+        String text = args[1];
+        String url;
+
+        if (args[1].startsWith("https://") || args[1].startsWith("http://")) {
+            args = args[1].split(" ", 2);
+            url = args[0];
+            text = args.length == 1 ? "" : args[1];
+        } else if (message.getReferencedMessage() != null) {
+            Message referenced = message.getReferencedMessage();
+            url = getAttachmentUrl(referenced).orElseGet(referenced::getContentRaw);
+        } else if (!message.getAttachments().isEmpty()) {
+            url = getAttachmentUrl(message).orElse("");
+        } else {
+            List<Message> messages = message.getChannel().getHistory().retrievePast(6).complete();
+            url = messages.stream()
+                    .filter(m -> m.getAuthor().getIdLong() == message.getAuthor().getIdLong())
+                    .dropWhile(m -> m.getAttachments().isEmpty() && !m.getContentRaw().startsWith("http"))
+                    .findFirst().map(Message::getContentRaw).orElse("");
+        }
+
+        if (!url.startsWith("https://") && !url.startsWith("http://")) {
+            throw new Exception("Ссылка не указана или указана неверно.");
+        }
+
+        for (Map.Entry<String, Pattern> keyword : KEYWORDS.entrySet()) {
+            if (url.contains(keyword.getKey())) {
+                try {
+                    String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
+                    Matcher matcher = keyword.getValue().matcher(html);
+                    if (!matcher.find()) {
+                        continue;
+                    }
+
+                    url = matcher.group(1);
+                    break;
+                } catch (IOException e) {
+                    return null;
+                }
+            }
+        }
+
+        return new String[]{url, text};
+    }
+
+    public Rectangle2D maxLineBounds(List<String> lines, Graphics2D textGraphics) {
+        Rectangle2D bounds = null;
+        for (String line : lines) {
+            Rectangle2D currentBounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
+            if (bounds == null) {
+                bounds = currentBounds;
+                continue;
+            }
+
+            if (currentBounds.getWidth() > bounds.getWidth()) {
+                bounds = currentBounds;
+            }
+        }
+
+        return Objects.requireNonNullElseGet(bounds, Rectangle2D.Double::new);
+    }
+
+    public BufferedImage renderText(int width, int height, String text) {
+        BufferedImage textImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        if (text.isEmpty()) {
+            return textImage;
+        }
+
+        List<String> lines = Arrays.asList(text.split("\n"));
+        Collections.reverse(lines);
+
+        Graphics2D textGraphics = textImage.createGraphics();
+        textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        textGraphics.setFont(FONT);
+        textGraphics.setColor(Color.WHITE);
+        textGraphics.getFontMetrics().getHeight();
+
+        Rectangle2D bounds = maxLineBounds(lines, textGraphics);
+
+        Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
+        textGraphics.setFont(font);
+        bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
+        AffineTransform transform = textGraphics.getTransform();
+        transform.translate(0, textImage.getHeight() + (int) (bounds.getHeight() / 2.0D));
+        for (String line : lines) {
+            bounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
+            int horizontalCenter = textImage.getWidth() / 2 - (int) bounds.getWidth() / 2;
+            transform.translate(horizontalCenter, -bounds.getHeight());
+            textGraphics.setTransform(transform);
+            textGraphics.setColor(Color.BLACK);
+            FontRenderContext frc = textGraphics.getFontRenderContext();
+            TextLayout tl = new TextLayout(line, font, frc);
+            Shape shape = tl.getOutline(null);
+            textGraphics.setStroke(new BasicStroke(2.0F));
+            textGraphics.draw(shape);
+            textGraphics.setColor(Color.WHITE);
+            textGraphics.fill(shape);
+            transform.translate(-horizontalCenter, 0);
+        }
+
+        textGraphics.dispose();
+
+        return textImage;
+    }
+
+    public String processMessage(Message message) throws Exception {
+        String[] args = message.getContentRaw().split(" ", 2);
+        args = mapMessageArguments(message, args);
+
+        if (args == null) {
+            throw new Exception("Ссылка не указана или указана неверно.");
+        }
+
+        String url = args[0];
+        String text = args[1];
+
+        String filename = System.currentTimeMillis() + ".gif";
+        try (FileOutputStream outputStream = new FileOutputStream("data/monke/" + filename);
+             FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
+            BufferedImage textImage = renderText(reader.getWidth(), reader.getHeight(), text);
+
+            AnimatedGifEncoder encoder = new AnimatedGifEncoder();
+            encoder.start(outputStream);
+            encoder.setRepeat(0);
+            encoder.setSize(textImage.getWidth(), textImage.getHeight());
+            encoder.setFrameRate(reader.getFrameRate());
+
+            BufferedImage frame;
+            while ((frame = reader.readFrame()) != null) {
+                Graphics2D graphics = frame.createGraphics();
+                graphics.drawImage(textImage, 0, 0, null);
+                graphics.dispose();
+                encoder.addFrame(frame);
+            }
+
+            encoder.finish();
+        }
+
+        return "https://api.jnngl.me/monke/" + filename;
+    }
+
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) {
             return;
         }
 
-        CompletableFuture.runAsync(() -> {
-            String message = event.getMessage().getContentRaw();
-            if (!message.startsWith("!monke")) {
-                return;
-            }
-
-            String[] args = message.split(" ", 2);
-            if (args.length == 1) {
+        String content = event.getMessage().getContentRaw();
+        if (!content.startsWith("!monke ")) {
+            if (content.startsWith("!monke")) {
                 event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
                         "Также можно ответить на сообщение с гифкой, в таком случае команда " +
                         "выглядит так: !monke <текст>").queue();
-                return;
             }
 
-            String text = args[1];
-            String url;
+            return;
+        }
 
-            if (args[1].startsWith("https://") || args[1].startsWith("http://")) {
-                args = args[1].split(" ", 2);
-                url = args[0];
-                text = args.length == 1 ? "" : args[1];
-            } else if (event.getMessage().getReferencedMessage() != null) {
-                Message referenced = event.getMessage().getReferencedMessage();
-                url = getAttachmentUrl(referenced).orElseGet(() -> event.getMessage().getReferencedMessage().getContentRaw());
-            } else if (!event.getMessage().getAttachments().isEmpty()) {
-                url = getAttachmentUrl(event.getMessage()).orElse("");
-            } else {
-                List<Message> messages = event.getChannel().getHistory().retrievePast(6).complete();
-                url = messages.stream()
-                        .filter(m -> m.getAuthor().getIdLong() == event.getAuthor().getIdLong())
-                        .dropWhile(m -> m.getAttachments().isEmpty() && !m.getContentRaw().startsWith("http"))
-                        .findFirst().map(Message::getContentRaw).orElse("");
-            }
-
-            if (!url.startsWith("https://") && !url.startsWith("http://")) {
-                event.getMessage().reply("Ссылка не указана или указана неверно.").queue();
-                return;
-            }
-
-            for (Map.Entry<String, Pattern> keyword : KEYWORDS.entrySet()) {
-                if (url.contains(keyword.getKey())) {
-                    try {
-                        String html = IOUtils.toString(new URL(url), StandardCharsets.UTF_8);
-                        Matcher matcher = keyword.getValue().matcher(html);
-                        if (!matcher.find()) {
-                            continue;
-                        }
-
-                        url = matcher.group(1);
-                        break;
-                    } catch (IOException e) {
-                        return;
-                    }
-                }
-            }
-
-            try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                 FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
-                BufferedImage textImage = new BufferedImage(reader.getWidth(), reader.getHeight(), BufferedImage.TYPE_INT_ARGB);
-
-                if (!text.isEmpty()) {
-                    List<String> lines = Arrays.asList(text.split("\n"));
-                    Collections.reverse(lines);
-
-                    Graphics2D textGraphics = textImage.createGraphics();
-                    textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    textGraphics.setFont(FONT);
-                    textGraphics.setColor(Color.WHITE);
-                    textGraphics.getFontMetrics().getHeight();
-
-                    Rectangle2D bounds = null;
-                    for (String line : lines) {
-                        Rectangle2D currentBounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
-                        if (bounds == null) {
-                            bounds = currentBounds;
-                            continue;
-                        }
-
-                        if (currentBounds.getWidth() > bounds.getWidth()) {
-                            bounds = currentBounds;
-                        }
-                    }
-
-                    assert bounds != null;
-                    Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
-                    textGraphics.setFont(font);
-                    bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
-                    AffineTransform transform = textGraphics.getTransform();
-                    transform.translate(0, textImage.getHeight() + (int) (bounds.getHeight() / 2.0D));
-                    for (String line : lines) {
-                        bounds = textGraphics.getFontMetrics().getStringBounds(line, textGraphics);
-                        int horizontalCenter = textImage.getWidth() / 2 - (int) bounds.getWidth() / 2;
-                        transform.translate(horizontalCenter, -bounds.getHeight());
-                        textGraphics.setTransform(transform);
-                        textGraphics.setColor(Color.BLACK);
-                        FontRenderContext frc = textGraphics.getFontRenderContext();
-                        TextLayout tl = new TextLayout(line, font, frc);
-                        Shape shape = tl.getOutline(null);
-                        textGraphics.setStroke(new BasicStroke(2.0F));
-                        textGraphics.draw(shape);
-                        textGraphics.setColor(Color.WHITE);
-                        textGraphics.fill(shape);
-                        transform.translate(-horizontalCenter, 0);
-                    }
-
-                    textGraphics.dispose();
-                }
-
-                AnimatedGifEncoder encoder = new AnimatedGifEncoder();
-                encoder.start(outputStream);
-                encoder.setRepeat(0);
-                encoder.setSize(textImage.getWidth(), textImage.getHeight());
-                encoder.setFrameRate(reader.getFrameRate());
-
-                BufferedImage frame;
-                while ((frame = reader.readFrame()) != null) {
-                    Graphics2D graphics = frame.createGraphics();
-                    graphics.drawImage(textImage, 0, 0, null);
-                    graphics.dispose();
-                    encoder.addFrame(frame);
-                }
-
-                encoder.finish();
-
-                byte[] bytes = outputStream.toByteArray();
-                if (bytes.length < 8000000) {
-                    event.getMessage().replyFiles(FileUpload.fromData(bytes, "monke.gif")).queue();
-                } else {
-                    String filename = System.nanoTime() + ".gif";
-                    IOUtils.write(bytes, new FileOutputStream("data/monke/" + filename));
-                    event.getMessage().reply("https://api.jnngl.me/monke/" + filename).queue();
-                }
-            } catch (Exception e) {
-                event.getMessage().reply("Не получилось добавить текст на говногифку: " + e.getMessage()).queue();
-            }
-        }).orTimeout(1, TimeUnit.MINUTES);
+        CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
+                .orTimeout(1, TimeUnit.MINUTES)
+                .whenComplete((url, exception) -> event.getMessage().reply(exception != null
+                        ? "Не получилось добавить текст на говногифку: " + exception.getMessage()
+                        : url).queue());
     }
 }
