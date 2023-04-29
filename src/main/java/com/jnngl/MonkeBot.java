@@ -175,13 +175,17 @@ public class MonkeBot extends ListenerAdapter {
     public String processMessage(Message message) throws Exception {
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
-
         if (args == null) {
             throw new Exception("Ссылка не указана или указана неверно.");
         }
 
         String url = args[0];
         String text = args[1];
+
+        System.out.println("Generating GIF:");
+        System.out.println("> Issued by " + message.getAuthor().getName());
+        System.out.println("> URL: " + url);
+        System.out.println("> Text: " + text);
 
         String filename = System.currentTimeMillis() + ".gif";
         try (FileOutputStream outputStream = new FileOutputStream("data/monke/" + filename);
