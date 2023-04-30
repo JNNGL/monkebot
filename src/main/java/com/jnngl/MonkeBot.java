@@ -174,6 +174,10 @@ public class MonkeBot extends ListenerAdapter {
     }
 
     public String processMessage(Message message) throws Exception {
+        if (message.getAuthor().getName().equalsIgnoreCase("VuTuV")) {
+            throw new Exception("Доступ к боту обезьянам запрещен.");
+        }
+
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
         if (args == null) {
