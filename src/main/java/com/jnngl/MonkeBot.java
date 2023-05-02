@@ -230,7 +230,7 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
-                .orTimeout(1, TimeUnit.MINUTES)
+                .orTimeout(3, TimeUnit.MINUTES)
                 .whenComplete((url, exception) -> event.getMessage().reply(exception != null
                         ? "Не получилось добавить текст на говногифку: \n> " + exception.getMessage()
                         : url).queue());
