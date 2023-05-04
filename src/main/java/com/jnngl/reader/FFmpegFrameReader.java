@@ -10,11 +10,11 @@ import java.net.URLConnection;
 
 public class FFmpegFrameReader implements FrameReader {
 
-    private static final FrameConverter<BufferedImage> FRAME_CONVERTER = new Java2DFrameConverter();
-
     private final FFmpegFrameGrabber grabber;
+    private final FrameConverter<BufferedImage> frameConverter;
 
     public FFmpegFrameReader(URLConnection connection) throws IOException {
+        this.frameConverter = new Java2DFrameConverter();
         grabber = new FFmpegFrameGrabber(connection.getInputStream());
         grabber.start();
     }
@@ -36,12 +36,13 @@ public class FFmpegFrameReader implements FrameReader {
 
     @Override
     public BufferedImage readFrame() throws IOException {
-        return FRAME_CONVERTER.convert(grabber.grabFrame(false, true, true, false, false));
+        return frameConverter.convert(grabber.grabFrame(false, true, true, false, false));
     }
 
     @Override
     public void close() throws Exception {
         grabber.stop();
         grabber.close();
+        frameConverter.close();
     }
 }
