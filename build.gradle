@@ -32,6 +32,21 @@ test {
 
 shadowJar {
     getArchiveClassifier().set("")
+
+    exclude("lib/**")
+    exclude("org/bytedeco/artoolkitplus/**")
+    exclude("org/bytedeco/flandmark/**")
+    exclude("org/bytedeco/flycapture/**")
+    exclude("org/bytedeco/leptonica/**")
+    exclude("org/bytedeco/libdc1394/**")
+    exclude("org/bytedeco/libfreenect/**")
+    exclude("org/bytedeco/libfreenect2/**")
+    exclude("org/bytedeco/librealsense/**")
+    exclude("org/bytedeco/librealsense2/**")
+    exclude("org/bytedeco/openblas/**")
+    exclude("org/bytedeco/opencv/**")
+    exclude("org/bytedeco/tesseract/**")
+    exclude("org/bytedeco/videoinput/**")
 }
 
 assemble.dependsOn(shadowJar)
