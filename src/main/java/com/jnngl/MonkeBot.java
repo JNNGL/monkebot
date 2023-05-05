@@ -7,8 +7,7 @@ import com.jnngl.translator.MonkeTranslatorV1_1;
 import com.jnngl.util.FutureUtil;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
-import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -185,10 +184,6 @@ public class MonkeBot extends ListenerAdapter {
     }
 
     public String processMessage(Message message) throws Exception {
-        if (message.getAuthor().getName().equalsIgnoreCase("VuTuV")) {
-            throw new Exception("Доступ к боту обезьянам запрещен.");
-        }
-
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
         if (args == null) {
@@ -223,11 +218,7 @@ public class MonkeBot extends ListenerAdapter {
         return "https://api.jnngl.me/monke/" + filename;
     }
 
-    public static String[] monkeTranslate(Message message, String text) {
-        if (message != null && message.getAuthor().getName().equalsIgnoreCase("VuTuV")) {
-            return new String[]{"с языка шальной обезьянки вутува на русский", "вутув идет нахуй."};
-        }
-
+    public static String[] monkeTranslate(String text) {
         for (;;) {
             if (!text.contains(" ")) {
                 break;
@@ -277,21 +268,34 @@ public class MonkeBot extends ListenerAdapter {
 
         String content = event.getMessage().getContentRaw();
         if (!content.startsWith("!monke ") && !content.startsWith("!monketranslate ")) {
-            if (content.startsWith("!monke")) {
+            if (content.startsWith("!monketranslate")) {
+                event.getMessage().reply("Использование: !monketranslate <текст>").queue();
+            } else if (content.startsWith("!monke")) {
                 event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
                         "Также можно ответить на сообщение с гифкой, в таком случае команда " +
                         "выглядит так: !monke <текст>").queue();
             }
 
-            if (content.startsWith("!monketranslate")) {
-                event.getMessage().reply("Использование: !monketranslate <текст>").queue();
-            }
+            return;
+        }
 
+        Guild guild = event.getJDA().getGuildById(1094273011630215218L);
+        assert guild != null;
+        Role role = guild.getRoleById(1102555948788236419L);
+        Member member = guild.retrieveMemberById(event.getAuthor().getIdLong()).complete();
+
+        if (member == null) {
+            event.getMessage().reply("Не удалсь проверить участника.").queue();
+            return;
+        }
+
+        if (member.getRoles().contains(role)) {
+            event.getMessage().reply("Доступ к боту обезьянам запрещен.").queue();
             return;
         }
 
         if (content.startsWith("!monketranslate ")) {
-            String[] translated = monkeTranslate(event.getMessage(), content.substring(16).trim());
+            String[] translated = monkeTranslate(content.substring(16).trim());
             event.getMessage().reply("Переведено " + translated[0] + ":\n > " + translated[1]).queue();
         } else {
             CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
