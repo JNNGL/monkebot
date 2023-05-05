@@ -296,7 +296,7 @@ public class MonkeBot extends ListenerAdapter {
             if (result == null) {
                 break;
             } else {
-                return new String[]{"с обезьяннего языка (" + MONKELANGS[version] + ")", result};
+                return new String[]{"с обезьяньего языка (" + MONKELANGS[version] + ")", result};
             }
         }
 
@@ -319,7 +319,7 @@ public class MonkeBot extends ListenerAdapter {
                 .replace('4', ' ');
 
         return new String[]{
-                "на обезьянний язык (" + MONKELANGS[CURRENT_MONKELANG] + ")",
+                "на обезьяний язык (" + MONKELANGS[CURRENT_MONKELANG] + ")",
                 translated
         };
     }
