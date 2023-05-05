@@ -19,6 +19,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,8 +28,12 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+interface MonkeTranslator extends Function<String, String> {
+}
 
 public class MonkeBot extends ListenerAdapter {
     private static final Map<String, Pattern> KEYWORDS = Map.of(
@@ -36,6 +41,14 @@ public class MonkeBot extends ListenerAdapter {
             "//imgur.com/", Pattern.compile("meta property=\"og:(?>video|image)\" data-react-helmet=\"true\" content=\"(.+?)(\\?fb)?\""),
             "//giphy.com/", Pattern.compile("meta property=\"og:video\" content=\"(.+?)\"")
     );
+
+    private static final String[] MONKELANGS = new String[]{"MonkeLang v1.0"};
+    private static final MonkeTranslator[] MONKETRANSLATORS = new MonkeTranslator[]{
+            MonkeBot::monkeTranslate0
+    };
+
+    private static final int CURRENT_MONKELANG = MONKELANGS.length - 1;
+
     private static final Font FONT;
 
     static {
@@ -212,6 +225,105 @@ public class MonkeBot extends ListenerAdapter {
         return "https://api.jnngl.me/monke/" + filename;
     }
 
+    public static int monkeHash0(String text) {
+        return Byte.toUnsignedInt((byte) text.hashCode());
+    }
+
+    public static String monkeTranslate0(String text) {
+        if (!text.matches("^[уУаА ]+$")) {
+            return null;
+        }
+
+        if (!text.endsWith("а")) {
+            return null;
+        }
+
+        text = text.replaceAll(".$", "");
+        if (!text.contains(" ")) {
+            return null;
+        }
+
+        text = text
+                .replace('у', '0')
+                .replace('У', '1')
+                .replace('а', '2')
+                .replace('А', '3');
+
+        String[] parts = text.split(" ", 2);
+        text = parts[1].replace(' ', '4');
+
+        int hash = Integer.parseUnsignedInt(parts[0], 4);
+        if (monkeHash0(text) != hash) {
+            return null;
+        }
+
+        BigInteger integer = new BigInteger(text, 5);
+        String translated = new String(integer.toByteArray(), StandardCharsets.UTF_8);
+        if (!translated.startsWith("#")) {
+            return null;
+        }
+
+        return translated.substring(1);
+    }
+
+    public static String[] monkeTranslate(Message message, String text) {
+        if (message != null && message.getAuthor().getName().equalsIgnoreCase("VuTuV")) {
+            return new String[]{"с языка шальной обезьянки вутува на русский", "вутув идет нахуй."};
+        }
+
+        for (;;) {
+            if (!text.contains(" ")) {
+                break;
+            }
+
+            String[] parts = text.split(" ", 2);
+            parts[0] = parts[0]
+                    .replace('у', '0')
+                    .replace('У', '1')
+                    .replace('а', '2')
+                    .replace('А', '3');
+
+            if (!parts[0].matches("^[0-3]+$")) {
+                break;
+            }
+
+            int version = Integer.parseUnsignedInt(parts[0], 4);
+            if (version >= MONKELANGS.length || MONKELANGS[version] == null) {
+                break;
+            }
+
+            String result = MONKETRANSLATORS[version].apply(parts[1]);
+            if (result == null) {
+                break;
+            } else {
+                return new String[]{"с обезьяннего языка (" + MONKELANGS[version] + ")", result};
+            }
+        }
+
+        StringBuilder monkeBuilder = new StringBuilder();
+        monkeBuilder.append(Integer.toUnsignedString(CURRENT_MONKELANG, 4));
+        monkeBuilder.append(' ');
+
+        BigInteger integer = new BigInteger(1, ("#" + text).getBytes(StandardCharsets.UTF_8));
+        String monkeText = integer.toString(5);
+        monkeBuilder.append(Integer.toUnsignedString(monkeHash0(monkeText), 4));
+        monkeBuilder.append(' ');
+        monkeBuilder.append(monkeText);
+        monkeBuilder.append('а');
+
+        String translated = monkeBuilder.toString()
+                .replace('0', 'у')
+                .replace('1', 'У')
+                .replace('2', 'а')
+                .replace('3', 'А')
+                .replace('4', ' ');
+
+        return new String[]{
+                "на обезьянний язык (" + MONKELANGS[CURRENT_MONKELANG] + ")",
+                translated
+        };
+    }
+
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) {
@@ -219,7 +331,7 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         String content = event.getMessage().getContentRaw();
-        if (!content.startsWith("!monke ")) {
+        if (!content.startsWith("!monke ") && !content.startsWith("!monketranslate")) {
             if (content.startsWith("!monke")) {
                 event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
                         "Также можно ответить на сообщение с гифкой, в таком случае команда " +
@@ -229,10 +341,15 @@ public class MonkeBot extends ListenerAdapter {
             return;
         }
 
-        CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
-                .orTimeout(3, TimeUnit.MINUTES)
-                .whenComplete((url, exception) -> event.getMessage().reply(exception != null
-                        ? "Не получилось добавить текст на говногифку: \n> " + exception.getMessage()
-                        : url).queue());
+        if (content.startsWith("!monketranslate ")) {
+            String[] translated = monkeTranslate(event.getMessage(), content.substring(16));
+            event.getMessage().reply("Переведено " + translated[0] + ":\n > " + translated[1]).queue();
+        } else {
+            CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
+                    .orTimeout(3, TimeUnit.MINUTES)
+                    .whenComplete((url, exception) -> event.getMessage().reply(exception != null
+                            ? "Не получилось добавить текст на говногифку: \n> " + exception.getMessage()
+                            : url).queue());
+        }
     }
 }
