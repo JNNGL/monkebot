@@ -3,6 +3,7 @@ package com.jnngl;
 import com.jnngl.reader.FrameReader;
 import com.jnngl.translator.MonkeTranslator;
 import com.jnngl.translator.MonkeTranslatorV1;
+import com.jnngl.translator.MonkeTranslatorV1_1;
 import com.jnngl.util.FutureUtil;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -40,7 +41,8 @@ public class MonkeBot extends ListenerAdapter {
     );
 
     private static final MonkeTranslator[] MONKE_TRANSLATORS = new MonkeTranslator[]{
-            new MonkeTranslatorV1()
+            new MonkeTranslatorV1(),
+            new MonkeTranslatorV1_1()
     };
 
     private static final int CURRENT_MONKELANG = MONKE_TRANSLATORS.length - 1;
