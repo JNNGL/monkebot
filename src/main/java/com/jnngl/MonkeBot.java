@@ -1,6 +1,8 @@
 package com.jnngl;
 
 import com.jnngl.reader.FrameReader;
+import com.jnngl.translator.MonkeTranslator;
+import com.jnngl.translator.MonkeTranslatorV1;
 import com.jnngl.util.FutureUtil;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -19,7 +21,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.math.BigInteger;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -28,12 +29,8 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-interface MonkeTranslator extends Function<String, String> {
-}
 
 public class MonkeBot extends ListenerAdapter {
     private static final Map<String, Pattern> KEYWORDS = Map.of(
@@ -42,12 +39,11 @@ public class MonkeBot extends ListenerAdapter {
             "//giphy.com/", Pattern.compile("meta property=\"og:video\" content=\"(.+?)\"")
     );
 
-    private static final String[] MONKELANGS = new String[]{"MonkeLang v1.0"};
-    private static final MonkeTranslator[] MONKETRANSLATORS = new MonkeTranslator[]{
-            MonkeBot::monkeTranslate0
+    private static final MonkeTranslator[] MONKE_TRANSLATORS = new MonkeTranslator[]{
+            new MonkeTranslatorV1()
     };
 
-    private static final int CURRENT_MONKELANG = MONKELANGS.length - 1;
+    private static final int CURRENT_MONKELANG = MONKE_TRANSLATORS.length - 1;
 
     private static final Font FONT;
 
@@ -225,47 +221,6 @@ public class MonkeBot extends ListenerAdapter {
         return "https://api.jnngl.me/monke/" + filename;
     }
 
-    public static int monkeHash0(String text) {
-        return Byte.toUnsignedInt((byte) text.hashCode());
-    }
-
-    public static String monkeTranslate0(String text) {
-        if (!text.matches("^[уУаА ]+$")) {
-            return null;
-        }
-
-        if (!text.endsWith("а")) {
-            return null;
-        }
-
-        text = text.replaceAll(".$", "");
-        if (!text.contains(" ")) {
-            return null;
-        }
-
-        text = text
-                .replace('у', '0')
-                .replace('У', '1')
-                .replace('а', '2')
-                .replace('А', '3');
-
-        String[] parts = text.split(" ", 2);
-        text = parts[1].replace(' ', '4');
-
-        int hash = Integer.parseUnsignedInt(parts[0], 4);
-        if (monkeHash0(text) != hash) {
-            return null;
-        }
-
-        BigInteger integer = new BigInteger(text, 5);
-        String translated = new String(integer.toByteArray(), StandardCharsets.UTF_8);
-        if (!translated.startsWith("#")) {
-            return null;
-        }
-
-        return translated.substring(1);
-    }
-
     public static String[] monkeTranslate(Message message, String text) {
         if (message != null && message.getAuthor().getName().equalsIgnoreCase("VuTuV")) {
             return new String[]{"с языка шальной обезьянки вутува на русский", "вутув идет нахуй."};
@@ -288,39 +243,27 @@ public class MonkeBot extends ListenerAdapter {
             }
 
             int version = Integer.parseUnsignedInt(parts[0], 4);
-            if (version >= MONKELANGS.length || MONKELANGS[version] == null) {
+            if (version >= MONKE_TRANSLATORS.length || MONKE_TRANSLATORS[version] == null) {
                 break;
             }
 
-            String result = MONKETRANSLATORS[version].apply(parts[1]);
+            String result = MONKE_TRANSLATORS[version].translateFromMonke(parts[1]);
             if (result == null) {
                 break;
             } else {
-                return new String[]{"с обезьяньего языка (" + MONKELANGS[version] + ")", result};
+                return new String[]{"с обезьяньего языка (" + MONKE_TRANSLATORS[version].getName() + ")", result};
             }
         }
 
-        StringBuilder monkeBuilder = new StringBuilder();
-        monkeBuilder.append(Integer.toUnsignedString(CURRENT_MONKELANG, 4));
-        monkeBuilder.append(' ');
-
-        BigInteger integer = new BigInteger(1, ("#" + text).getBytes(StandardCharsets.UTF_8));
-        String monkeText = integer.toString(5);
-        monkeBuilder.append(Integer.toUnsignedString(monkeHash0(monkeText), 4));
-        monkeBuilder.append(' ');
-        monkeBuilder.append(monkeText);
-        monkeBuilder.append('а');
-
-        String translated = monkeBuilder.toString()
-                .replace('0', 'у')
-                .replace('1', 'У')
-                .replace('2', 'а')
-                .replace('3', 'А')
-                .replace('4', ' ');
-
         return new String[]{
-                "на обезьяний язык (" + MONKELANGS[CURRENT_MONKELANG] + ")",
-                translated
+                "на обезьяний язык (" + MONKE_TRANSLATORS[CURRENT_MONKELANG].getName() + ")",
+                Integer.toUnsignedString(CURRENT_MONKELANG, 4)
+                    .replace('0', 'у')
+                    .replace('1', 'У')
+                    .replace('2', 'а')
+                    .replace('3', 'А') +
+                    ' ' +
+                    MONKE_TRANSLATORS[CURRENT_MONKELANG].translateToMonke(text)
         };
     }
 
