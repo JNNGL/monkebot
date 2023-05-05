@@ -331,18 +331,22 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         String content = event.getMessage().getContentRaw();
-        if (!content.startsWith("!monke ") && !content.startsWith("!monketranslate")) {
+        if (!content.startsWith("!monke ") && !content.startsWith("!monketranslate ")) {
             if (content.startsWith("!monke")) {
                 event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
                         "Также можно ответить на сообщение с гифкой, в таком случае команда " +
                         "выглядит так: !monke <текст>").queue();
             }
 
+            if (content.startsWith("!monketranslate")) {
+                event.getMessage().reply("Использование: !monketranslate <текст>").queue();
+            }
+
             return;
         }
 
         if (content.startsWith("!monketranslate ")) {
-            String[] translated = monkeTranslate(event.getMessage(), content.substring(16));
+            String[] translated = monkeTranslate(event.getMessage(), content.substring(16).trim());
             event.getMessage().reply("Переведено " + translated[0] + ":\n > " + translated[1]).queue();
         } else {
             CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
