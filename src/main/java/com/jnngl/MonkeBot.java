@@ -300,7 +300,7 @@ public class MonkeBot extends ListenerAdapter {
 
         if (content.startsWith("!monketranslate ")) {
             String[] translated = monkeTranslate(content.substring(16).trim());
-            if (translated[1].length() < 1900 - (translated[1].split("\n").length - 1) * 2) {
+            if (translated[1].length() < 1900 - (translated[1].split("\n", -1).length - 1) * 2) {
                 event.getMessage().reply("Переведено " + translated[0] + ":\n> " +
                         translated[1].replace("\n", "\n> ")).queue();
             } else {
