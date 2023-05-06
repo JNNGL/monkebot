@@ -300,9 +300,9 @@ public class MonkeBot extends ListenerAdapter {
 
         if (content.startsWith("!monketranslate ")) {
             String[] translated = monkeTranslate(content.substring(16).trim());
-            if (translated[1].length() < 1900) {
-                event.getMessage().reply("Переведено " + translated[0] + ":\n```\n" +
-                        translated[1].replace("```", "'''") + "\n```").queue();
+            if (translated[1].length() < 1900 - (translated[1].split("\n").length - 1) * 2) {
+                event.getMessage().reply("Переведено " + translated[0] + ":\n> " +
+                        translated[1].replace("\n", "\n> ")).queue();
             } else {
                 byte[] bytes = translated[1].getBytes(StandardCharsets.UTF_8);
                 event.getMessage().reply(new MessageCreateBuilder()
