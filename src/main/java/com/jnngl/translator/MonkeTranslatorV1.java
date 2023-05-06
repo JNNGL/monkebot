@@ -36,7 +36,7 @@ public class MonkeTranslatorV1 implements MonkeTranslator {
 
     public String[] getDictionary() {
         return new String[] {
-                "у", "У", "а", "А", " "
+                "у", "У", "У", "А", " "
         };
     }
 
@@ -50,12 +50,16 @@ public class MonkeTranslatorV1 implements MonkeTranslator {
         return regex + "]+$";
     }
 
+    public byte[] getTextBytes(String text) {
+        return text.getBytes(StandardCharsets.UTF_8);
+    }
+
     @Override
     public String translateToMonke(String text) {
         String[] dictionary = getDictionary();
         StringBuilder monkeBuilder = new StringBuilder();
 
-        BigInteger integer = new BigInteger(1, (getPrefix() + text).getBytes(StandardCharsets.UTF_8));
+        BigInteger integer = new BigInteger(1, getTextBytes(getPrefix() + text));
         String monkeText = integer.toString(dictionary.length);
         monkeBuilder.append(monkeEncodeHash(monkeHash(monkeText)));
         monkeBuilder.append(getSeparator());
@@ -97,6 +101,10 @@ public class MonkeTranslatorV1 implements MonkeTranslator {
         return Integer.parseUnsignedInt(hash, 4);
     }
 
+    public String getTextFromBytes(byte[] bytes) {
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
     @Override
     public String translateFromMonke(String text) {
         if ((text = prepareForTranslation(text)) == null) {
@@ -122,7 +130,7 @@ public class MonkeTranslatorV1 implements MonkeTranslator {
 
 
         BigInteger integer = new BigInteger(text, dictionary.length);
-        String translated = new String(integer.toByteArray(), StandardCharsets.UTF_8);
+        String translated = getTextFromBytes(integer.toByteArray());
         String prefix = getPrefix();
         if (!translated.startsWith(prefix)) {
             return null;

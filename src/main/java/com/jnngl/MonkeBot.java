@@ -4,6 +4,7 @@ import com.jnngl.reader.FrameReader;
 import com.jnngl.translator.MonkeTranslator;
 import com.jnngl.translator.MonkeTranslatorV1;
 import com.jnngl.translator.MonkeTranslatorV1_1;
+import com.jnngl.translator.MonkeTranslatorV1_2;
 import com.jnngl.util.FutureUtil;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
@@ -11,6 +12,8 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -41,7 +44,8 @@ public class MonkeBot extends ListenerAdapter {
 
     private static final MonkeTranslator[] MONKE_TRANSLATORS = new MonkeTranslator[]{
             new MonkeTranslatorV1(),
-            new MonkeTranslatorV1_1()
+            new MonkeTranslatorV1_1(),
+            new MonkeTranslatorV1_2()
     };
 
     private static final int CURRENT_MONKELANG = MONKE_TRANSLATORS.length - 1;
@@ -240,7 +244,7 @@ public class MonkeBot extends ListenerAdapter {
                 break;
             }
 
-            String result = MONKE_TRANSLATORS[version].translateFromMonke(parts[1]);
+            String result = MONKE_TRANSLATORS[version].translateFromMonke(parts[1].replace("\n", ""));
             if (result == null) {
                 break;
             } else {
@@ -296,7 +300,16 @@ public class MonkeBot extends ListenerAdapter {
 
         if (content.startsWith("!monketranslate ")) {
             String[] translated = monkeTranslate(content.substring(16).trim());
-            event.getMessage().reply("Переведено " + translated[0] + ":\n > " + translated[1]).queue();
+            if (translated[1].length() < 1900) {
+                event.getMessage().reply("Переведено " + translated[0] + ":\n```\n" +
+                        translated[1].replace("```", "'''") + "\n```").queue();
+            } else {
+                byte[] bytes = translated[1].getBytes(StandardCharsets.UTF_8);
+                event.getMessage().reply(new MessageCreateBuilder()
+                        .addContent("Переведено " + translated[0] + ":")
+                        .addFiles(FileUpload.fromData(bytes, "translated.txt"))
+                        .build()).queue();
+            }
         } else {
             CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
                     .orTimeout(3, TimeUnit.MINUTES)
