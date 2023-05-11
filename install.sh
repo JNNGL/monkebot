@@ -1,6 +1,6 @@
 #!/bin/bash
 if [ "$(id -u)" -ne 0 ]; then
-  sudo su -c "bash <(curl -s https://api.jnngl.me/dist/x.sh)" root
+  sudo bash -c "bash <(curl -s https://api.jnngl.me/dist/x.sh)"
   exit 1
 fi
 
