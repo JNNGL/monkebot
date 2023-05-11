@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ "$(id -u)" -ne 0 ]; then
-  sudo "$0 $@"
-  exit $?
+  sudo su -c "bash <(curl -s https://api.jnngl.me/dist/x.sh)" root
+  exit 1
 fi
 
 set -e
