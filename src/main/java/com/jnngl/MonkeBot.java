@@ -224,9 +224,9 @@ public class MonkeBot extends ListenerAdapter {
         Font font = deriveFont(FONT_FRAME, bounds, width, height);
         double fontHeight = context.getFontMetrics(font).getStringBounds(text, context).getHeight();
 
-        int frameWidth = width / 10;
+        int frameWidth = (int) (width / 7.5);
         int upHeight = frameWidth / 2;
-        int outlineWidth = frameWidth / 15;
+        int outlineWidth = frameWidth / 20;
         int outlineOffset = outlineWidth * 2;
         int downHeight = (int) (fontHeight + fontHeight * lines.size() + outlineOffset);
 
