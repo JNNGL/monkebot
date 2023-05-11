@@ -42,5 +42,8 @@ bin/
 .DS_Store
 
 ### Monke Stuff ###
-font.ttf
+font*.ttf
 token.txt
+api_url.txt
+guild.txt
+role.txt

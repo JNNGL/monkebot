@@ -1,3 +1,17 @@
+/*
+ * All Rights Reserved
+ *
+ * Copyright (c) 2023 JNNGL
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.jnngl;
 
 import com.jnngl.reader.FrameReader;
@@ -7,6 +21,7 @@ import com.jnngl.translator.MonkeTranslatorV1_1;
 import com.jnngl.translator.MonkeTranslatorV1_2;
 import com.jnngl.util.FutureUtil;
 import com.jnngl.util.Swapped;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.*;
@@ -60,6 +75,9 @@ public class MonkeBot extends ListenerAdapter {
 
     private static final Font FONT;
     private static final Font FONT_FRAME;
+    private static final String API_URL;
+    private static final long GUILD_ID;
+    private static final long ROLE_ID;
 
     static {
         try {
@@ -68,6 +86,9 @@ public class MonkeBot extends ListenerAdapter {
 
             FONT = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font.ttf"));
             FONT_FRAME = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font-frame.ttf"));
+            API_URL = Files.readString(Path.of("api_url.txt")).trim();
+            GUILD_ID = Long.parseLong(Files.readString(Path.of("guild.txt")).trim());
+            ROLE_ID = Long.parseLong(Files.readString(Path.of("role.txt")).trim());
         } catch (FontFormatException | IOException | ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -326,7 +347,7 @@ public class MonkeBot extends ListenerAdapter {
             encoder.finish();
         }
 
-        return "https://api.jnngl.me/monke/" + filename;
+        return API_URL + filename;
     }
 
     public static String[] monkeTranslate(String text) {
@@ -383,32 +404,36 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         if (content.startsWith("!monke") && !content.contains(" ")) {
-            if (content.startsWith("!monketranslate")) {
-                event.getMessage().reply("Использование: !monketranslate <текст>").queue();
-            } else if (content.startsWith("!monkeframe")) {
-                event.getMessage().reply("Использование: !monkeframe [ссылка] <текст>\n" +
-                        "Также можно ответить на сообещение с гифкой, в таком случае команда" +
-                        "выгядит так: !monkeframe <текст>").queue();
-            } else if (content.startsWith("!monke")) {
-                event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
-                        "Также можно ответить на сообщение с гифкой, в таком случае команда " +
-                        "выглядит так: !monke <текст>").queue();
-            }
+            event.getMessage().replyEmbeds(new EmbedBuilder()
+                    .setColor(Color.RED)
+                    .setTitle("Доступные команды:")
+                    .addField(
+                            "MonkeTranslate - обезьяний переводчик",
+                            "Использование: !monketranslate <текст>",
+                            false)
+                    .addField(
+                            "MonkeFrame - добавление текста на гифку в виде демотиватора",
+                            "Использование: !monkeframe [ссылка] <текст>\n" +
+                                    "Также можно ответить на сообещение с гифкой, " +
+                                    "в таком случае команда выгядит так: !monkeframe <текст>",
+                            false)
+                    .addField(
+                            "Monke - добавление текста на гифку> Использование: !monke [ссылка] <текст>",
+                            "Использование: !monke [ссылка] <текст>\n" +
+                                    "Также можно ответить на сообещение с гифкой, " +
+                                    "в таком случае команда выгядит так: !monke <текст>",
+                            false)
+                    .setFooter("JNNGL © 2023 | All rights reserved.")
+                    .build()).queue();
 
             return;
         }
 
-        Guild guild = event.getJDA().getGuildById(1094273011630215218L);
-        assert guild != null;
-        Role role = guild.getRoleById(1102555948788236419L);
-        Member member = guild.retrieveMemberById(event.getAuthor().getIdLong()).complete();
+        Guild guild = event.getJDA().getGuildById(GUILD_ID);
+        Role role = guild != null ? guild.getRoleById(ROLE_ID) : null;
+        Member member = role != null ? guild.retrieveMemberById(event.getAuthor().getIdLong()).complete() : null;
 
-        if (member == null) {
-            event.getMessage().reply("Не удалсь проверить участника.").queue();
-            return;
-        }
-
-        if (member.getRoles().contains(role)) {
+        if (member != null && member.getRoles().contains(role)) {
             event.getMessage().reply("Доступ к боту обезьянам запрещен.").queue();
             return;
         }
