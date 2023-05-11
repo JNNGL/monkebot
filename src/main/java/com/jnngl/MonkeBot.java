@@ -221,8 +221,6 @@ public class MonkeBot extends ListenerAdapter {
         double widthSize = FONT_FRAME.getSize2D() * width / (float) bounds.getWidth();
 
         Font font = FONT_FRAME.deriveFont((float) Math.min(widthSize, heightSize));
-        double currentHeight = context.getFontMetrics(font).getHeight();
-
         double fontHeight = context.getFontMetrics(font).getStringBounds(text, context).getHeight();
 
         int frameWidth = width / 10;
