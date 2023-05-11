@@ -157,6 +157,12 @@ public class MonkeBot extends ListenerAdapter {
         return Objects.requireNonNullElseGet(bounds, Rectangle2D.Double::new);
     }
 
+    public Font deriveFont(Font font, Rectangle2D bounds, int width, int height) {
+        double heightSize = font.getSize2D() * height / (float) bounds.getHeight() / 4;
+        double widthSize = font.getSize2D() * width / (float) bounds.getWidth();
+        return font.deriveFont((float) Math.min(widthSize, heightSize));
+    }
+
     public BufferedImage renderText(int width, int height, String text) {
         Hashtable<String, Object> properties = new Hashtable<>();
         properties.put("FrameX", 0);
@@ -182,8 +188,7 @@ public class MonkeBot extends ListenerAdapter {
         textGraphics.setColor(Color.WHITE);
 
         Rectangle2D bounds = maxLineBounds(lines, textGraphics);
-
-        Font font = FONT.deriveFont(FONT.getSize2D() * textImage.getWidth() / (float) bounds.getWidth());
+        Font font = deriveFont(FONT, bounds, width, height);
         textGraphics.setFont(font);
         bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
         AffineTransform transform = textGraphics.getTransform();
@@ -216,11 +221,7 @@ public class MonkeBot extends ListenerAdapter {
         Graphics2D context = GRAPHICS_FONT_CONTEXT.get();
         context.setFont(FONT_FRAME);
         Rectangle2D bounds = maxLineBounds(lines, context);
-
-        double heightSize = FONT_FRAME.getSize2D() * height / (float) bounds.getHeight() / 4;
-        double widthSize = FONT_FRAME.getSize2D() * width / (float) bounds.getWidth();
-
-        Font font = FONT_FRAME.deriveFont((float) Math.min(widthSize, heightSize));
+        Font font = deriveFont(FONT_FRAME, bounds, width, height);
         double fontHeight = context.getFontMetrics(font).getStringBounds(text, context).getHeight();
 
         int frameWidth = width / 10;
