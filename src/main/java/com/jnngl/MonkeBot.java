@@ -6,6 +6,7 @@ import com.jnngl.translator.MonkeTranslatorV1;
 import com.jnngl.translator.MonkeTranslatorV1_1;
 import com.jnngl.translator.MonkeTranslatorV1_2;
 import com.jnngl.util.FutureUtil;
+import com.jnngl.util.Swapped;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.*;
@@ -24,6 +25,8 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -50,12 +53,22 @@ public class MonkeBot extends ListenerAdapter {
 
     private static final int CURRENT_MONKELANG = MONKE_TRANSLATORS.length - 1;
 
+    private static final ThreadLocal<Graphics2D> GRAPHICS_FONT_CONTEXT = ThreadLocal.withInitial(() ->
+            new BufferedImage(1, 1, BufferedImage.TYPE_BYTE_BINARY).createGraphics());
+
+    private static final MethodHandle PROPERTIES_SETTER;
+
     private static final Font FONT;
+    private static final Font FONT_FRAME;
 
     static {
         try {
+            PROPERTIES_SETTER = MethodHandles.privateLookupIn(BufferedImage.class, MethodHandles.lookup())
+                    .findSetter(BufferedImage.class, "properties", Hashtable.class);
+
             FONT = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font.ttf"));
-        } catch (FontFormatException | IOException e) {
+            FONT_FRAME = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font-frame.ttf"));
+        } catch (FontFormatException | IOException | ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
@@ -145,7 +158,17 @@ public class MonkeBot extends ListenerAdapter {
     }
 
     public BufferedImage renderText(int width, int height, String text) {
+        Hashtable<String, Object> properties = new Hashtable<>();
+        properties.put("FrameX", 0);
+        properties.put("FrameY", 0);
+
         BufferedImage textImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        try {
+            PROPERTIES_SETTER.invoke(textImage, properties);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+
         if (text.isEmpty()) {
             return textImage;
         }
@@ -157,7 +180,6 @@ public class MonkeBot extends ListenerAdapter {
         textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         textGraphics.setFont(FONT);
         textGraphics.setColor(Color.WHITE);
-        textGraphics.getFontMetrics().getHeight();
 
         Rectangle2D bounds = maxLineBounds(lines, textGraphics);
 
@@ -187,7 +209,70 @@ public class MonkeBot extends ListenerAdapter {
         return textImage;
     }
 
-    public String processMessage(Message message) throws Exception {
+    public BufferedImage renderFrame(int width, int height, String text) {
+        List<String> lines = Arrays.asList(text.split("\n"));
+        Collections.reverse(lines);
+
+        Graphics2D context = GRAPHICS_FONT_CONTEXT.get();
+        context.setFont(FONT_FRAME);
+        Rectangle2D bounds = maxLineBounds(lines, context);
+        Font font = FONT_FRAME.deriveFont(FONT_FRAME.getSize2D() * width / (float) bounds.getWidth());
+        double fontHeight = context.getFontMetrics(font).getStringBounds(text, context).getHeight();
+
+        int frameWidth = width / 10;
+        int upHeight = frameWidth / 2;
+        int outlineWidth = frameWidth / 15;
+        int outlineOffset = outlineWidth * 2;
+        int downHeight = (int) (fontHeight + fontHeight * lines.size() + outlineOffset);
+
+        int totalWidth = frameWidth * 2 + width;
+        int totalHeight = upHeight + height + downHeight;
+
+        Hashtable<String, Object> properties = new Hashtable<>();
+        properties.put("FrameX", frameWidth);
+        properties.put("FrameY", upHeight);
+        properties.put("RenderBuffer", new Swapped<>(() ->
+                new BufferedImage(totalWidth, totalHeight, BufferedImage.TYPE_INT_ARGB)));
+
+        BufferedImage frameImage = new BufferedImage(totalWidth, totalHeight, BufferedImage.TYPE_INT_ARGB);
+        try {
+            PROPERTIES_SETTER.invoke(frameImage, properties);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+
+        Graphics2D graphics = frameImage.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setStroke(new BasicStroke(outlineWidth));
+        graphics.setFont(font);
+        graphics.setColor(Color.BLACK);
+        graphics.fillRect(0, 0, totalWidth, totalHeight);
+        graphics.setColor(Color.WHITE);
+        graphics.drawRect(frameWidth - outlineOffset, upHeight - outlineOffset,
+                width + outlineOffset * 2, height + outlineOffset * 2);
+
+        FontMetrics metrics = graphics.getFontMetrics();
+        double currentY = totalHeight - fontHeight * 0.5 - metrics.getDescent();
+        for (String line : lines) {
+            int lineWidth = (int) metrics.getStringBounds(line, graphics).getWidth();
+            graphics.drawString(line, (totalWidth - lineWidth) / 2, (int) currentY);
+            currentY -= fontHeight;
+        }
+
+        graphics.dispose();
+
+        return frameImage;
+    }
+
+    public BufferedImage renderOverlay(int width, int height, String text, boolean isFramed) {
+        if (isFramed) {
+            return renderFrame(width, height, text);
+        } else {
+            return renderText(width, height, text);
+        }
+    }
+
+    public String processMessage(Message message, boolean isFramed) throws Exception {
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
         if (args == null) {
@@ -200,20 +285,37 @@ public class MonkeBot extends ListenerAdapter {
         String filename = System.currentTimeMillis() + ".gif";
         try (FileOutputStream outputStream = new FileOutputStream("data/monke/" + filename);
              FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
-            BufferedImage textImage = renderText(reader.getWidth(), reader.getHeight(), text);
+            BufferedImage overlay = renderOverlay(reader.getWidth(), reader.getHeight(), text, isFramed);
+
+            int frameX = (Integer) overlay.getProperty("FrameX");
+            int frameY = (Integer) overlay.getProperty("FrameY");
+
+            Object renderBufferValue = overlay.getProperty("RenderBuffer");
+            @SuppressWarnings("unchecked")
+            Swapped<BufferedImage> renderBuffer = renderBufferValue != BufferedImage.UndefinedProperty
+                    ? (Swapped<BufferedImage>) renderBufferValue : null;
 
             AnimatedGifEncoder encoder = new AnimatedGifEncoder();
             encoder.start(outputStream);
             encoder.setRepeat(0);
-            encoder.setSize(textImage.getWidth(), textImage.getHeight());
+            encoder.setSize(overlay.getWidth(), overlay.getHeight());
             encoder.setFrameRate(reader.getFrameRate());
 
             BufferedImage frame;
             while ((frame = reader.readFrame()) != null) {
-                Graphics2D graphics = frame.createGraphics();
-                graphics.drawImage(textImage, 0, 0, null);
-                graphics.dispose();
-                encoder.addFrame(frame);
+                if (renderBuffer != null) {
+                    BufferedImage buffer = renderBuffer.getNext();
+                    Graphics2D graphics = buffer.createGraphics();
+                    graphics.drawImage(overlay, 0, 0, null);
+                    graphics.drawImage(frame, frameX, frameY, null);
+                    graphics.dispose();
+                    encoder.addFrame(buffer);
+                } else {
+                    Graphics2D graphics = frame.createGraphics();
+                    graphics.drawImage(overlay, 0, 0, null);
+                    graphics.dispose();
+                    encoder.addFrame(frame);
+                }
             }
 
             encoder.finish();
@@ -271,9 +373,17 @@ public class MonkeBot extends ListenerAdapter {
         }
 
         String content = event.getMessage().getContentRaw();
-        if (!content.startsWith("!monke ") && !content.startsWith("!monketranslate ")) {
+        if (!content.startsWith("!monke")) {
+            return;
+        }
+
+        if (content.startsWith("!monke") && !content.contains(" ")) {
             if (content.startsWith("!monketranslate")) {
                 event.getMessage().reply("Использование: !monketranslate <текст>").queue();
+            } else if (content.startsWith("!monkeframe")) {
+                event.getMessage().reply("Использование: !monkeframe [ссылка] <текст>\n" +
+                        "Также можно ответить на сообещение с гифкой, в таком случае команда" +
+                        "выгядит так: !monkeframe <текст>").queue();
             } else if (content.startsWith("!monke")) {
                 event.getMessage().reply("Использование: !monke [ссылка] <текст>\n" +
                         "Также можно ответить на сообщение с гифкой, в таком случае команда " +
@@ -311,7 +421,7 @@ public class MonkeBot extends ListenerAdapter {
                         .build()).queue();
             }
         } else {
-            CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage())))
+            CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage(), content.startsWith("!monkeframe "))))
                     .orTimeout(3, TimeUnit.MINUTES)
                     .whenComplete((url, exception) -> event.getMessage().reply(exception != null
                             ? "Не получилось добавить текст на говногифку: \n> " + exception.getMessage()
