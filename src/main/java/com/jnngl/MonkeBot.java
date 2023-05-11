@@ -216,7 +216,13 @@ public class MonkeBot extends ListenerAdapter {
         Graphics2D context = GRAPHICS_FONT_CONTEXT.get();
         context.setFont(FONT_FRAME);
         Rectangle2D bounds = maxLineBounds(lines, context);
-        Font font = FONT_FRAME.deriveFont(FONT_FRAME.getSize2D() * width / (float) bounds.getWidth());
+
+        double heightSize = FONT_FRAME.getSize2D() * height / (float) bounds.getHeight() / 4;
+        double widthSize = FONT_FRAME.getSize2D() * width / (float) bounds.getWidth();
+
+        Font font = FONT_FRAME.deriveFont((float) Math.min(widthSize, heightSize));
+        double currentHeight = context.getFontMetrics(font).getHeight();
+
         double fontHeight = context.getFontMetrics(font).getStringBounds(text, context).getHeight();
 
         int frameWidth = width / 10;
