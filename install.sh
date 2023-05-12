@@ -18,8 +18,8 @@ read -r -e -p "Введите ID сервера [0]: " guild
 guild=${guild:-0}
 read -r -e -p "Введите ID заблокированной роли [0]: " role
 role=${role:-0}
-read -r -e -p "Введите ID ограниченной роли [0]: " suspicious_role
-suspicious_role=${suspicious_role:-0}
+read -r -e -p "Введите ID ограниченной роли [0]: " limited_role
+limited_role=${limited_role:-0}
 read -r -e -p "Введите URL для загрузки шрифта [https://api.jnngl.me/dist/font.ttf]: " font
 font=${font:-https://api.jnngl.me/dist/font.ttf}
 read -r -e -p "Введите URL для загрузки шрифта (демотиватор) [https://api.jnngl.me/dist/font-frame.ttf]: " font_frame
@@ -53,6 +53,7 @@ echo "Подготовка файлов бота..."
 echo "$api_url" > api_url.txt
 echo "$guild" > guild.txt
 echo "$role" > role.txt
+echo "$limited_role" >> role.txt
 echo "$token" > token.txt
 curl -s "$font" --output font.ttf
 curl -s "$font_frame" --output font-frame.ttf
