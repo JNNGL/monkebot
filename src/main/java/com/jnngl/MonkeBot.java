@@ -78,6 +78,7 @@ public class MonkeBot extends ListenerAdapter {
     private static final String API_URL;
     private static final long GUILD_ID;
     private static final long ROLE_ID;
+    private static final long LIMITED_ROLE_ID;
 
     static {
         try {
@@ -88,7 +89,11 @@ public class MonkeBot extends ListenerAdapter {
             FONT_FRAME = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font-frame.ttf"));
             API_URL = Files.readString(Path.of("api_url.txt")).trim();
             GUILD_ID = Long.parseLong(Files.readString(Path.of("guild.txt")).trim());
-            ROLE_ID = Long.parseLong(Files.readString(Path.of("role.txt")).trim());
+            List<Long> roles = Files.readAllLines(Path.of("role.txt"))
+                    .stream().map(s -> Long.parseLong(s.trim()))
+                    .toList();
+            ROLE_ID = roles.size() > 0 ? roles.get(0) : 0;
+            LIMITED_ROLE_ID = roles.size() > 1 ? roles.get(1) : 0;
         } catch (FontFormatException | IOException | ReflectiveOperationException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -431,7 +436,14 @@ public class MonkeBot extends ListenerAdapter {
 
         Guild guild = event.getJDA().getGuildById(GUILD_ID);
         Role role = guild != null ? guild.getRoleById(ROLE_ID) : null;
+        Role limitedRole = guild != null ? guild.getRoleById(LIMITED_ROLE_ID) : null;
         Member member = role != null ? guild.retrieveMemberById(event.getAuthor().getIdLong()).complete() : null;
+
+        if (member != null && member.getRoles().contains(limitedRole)
+                && (!event.isFromGuild() || event.getGuild().getIdLong() != GUILD_ID)) {
+            event.getMessage().reply("Доступ к боту в ЛС и на чужих серверах запрещен.").queue();
+            return;
+        }
 
         if (member != null && member.getRoles().contains(role)) {
             event.getMessage().reply("Доступ к боту обезьянам запрещен.").queue();

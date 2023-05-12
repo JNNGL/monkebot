@@ -18,6 +18,8 @@ read -r -e -p "Введите ID сервера [0]: " guild
 guild=${guild:-0}
 read -r -e -p "Введите ID заблокированной роли [0]: " role
 role=${role:-0}
+read -r -e -p "Введите ID ограниченной роли [0]: " suspicious_role
+suspicious_role=${suspicious_role:-0}
 read -r -e -p "Введите URL для загрузки шрифта [https://api.jnngl.me/dist/font.ttf]: " font
 font=${font:-https://api.jnngl.me/dist/font.ttf}
 read -r -e -p "Введите URL для загрузки шрифта (демотиватор) [https://api.jnngl.me/dist/font-frame.ttf]: " font_frame
@@ -54,7 +56,7 @@ echo "$role" > role.txt
 echo "$token" > token.txt
 curl -s "$font" --output font.ttf
 curl -s "$font_frame" --output font-frame.ttf
-case "$(uname -i)" in
+case "$(uname -m)" in
   x86_64|amd64)
     url="https://github.com/adoptium/temurin18-binaries/releases/download/jdk-18.0.2.1%2B1/OpenJDK18U-jdk_x64_linux_hotspot_18.0.2.1_1.tar.gz";;
   arm*)
@@ -62,7 +64,7 @@ case "$(uname -i)" in
   aarch64)
     url="https://github.com/adoptium/temurin18-binaries/releases/download/jdk-18.0.2.1%2B1/OpenJDK18U-jdk_aarch64_linux_hotspot_18.0.2.1_1.tar.gz";;
   *)
-    echo "Архитектура $(uname -i) не поддерживается"
+    echo "Архитектура $(uname -m) не поддерживается"
     exit 1;;
 esac
 mkdir -p jdk
