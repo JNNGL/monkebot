@@ -68,7 +68,7 @@ esac
 mkdir -p jdk
 curl -sSL "$url" | tar -xzf - -C jdk --strip-components 1
 echo "export JAVA_HOME=$install_path/jdk" > profile
-echo "export PATH=\$PATH:$JAVA_HOME/bin" >> profile
+echo "export PATH=\$PATH:\$JAVA_HOME/bin" >> profile
 curl -sS "https://api.jnngl.me/dist/deploy.sh" --output deploy.sh
 sed -i "s/__REPO__/$(echo "$repo" | sed -e 's/[\/&]/\\&/g')/g" deploy.sh
 sed -i "s/__WEBHOOK__/$(echo "$webhook" | sed -e 's/[\/&]/\\&/g')/g" deploy.sh
