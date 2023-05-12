@@ -210,6 +210,7 @@ public class MonkeBot extends ListenerAdapter {
 
         Graphics2D textGraphics = textImage.createGraphics();
         textGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        textGraphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         textGraphics.setFont(FONT);
         textGraphics.setColor(Color.WHITE);
 
@@ -245,6 +246,7 @@ public class MonkeBot extends ListenerAdapter {
         Collections.reverse(lines);
 
         Graphics2D context = GRAPHICS_FONT_CONTEXT.get();
+        context.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         context.setFont(FONT_FRAME);
         Rectangle2D bounds = maxLineBounds(lines, context);
         Font font = deriveFont(FONT_FRAME, bounds, width, height);
