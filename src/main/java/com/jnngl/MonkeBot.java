@@ -215,7 +215,7 @@ public class MonkeBot extends ListenerAdapter {
         textGraphics.setColor(Color.WHITE);
 
         Rectangle2D bounds = maxLineBounds(lines, textGraphics);
-        Font font = deriveFont(FONT, bounds, width, height);
+        Font font = deriveFont(FONT, bounds, width - width / 10, height);
         textGraphics.setFont(font);
         bounds = textGraphics.getFontMetrics().getStringBounds(text, textGraphics);
         AffineTransform transform = textGraphics.getTransform();
