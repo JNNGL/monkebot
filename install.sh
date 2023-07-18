@@ -26,21 +26,9 @@ read -r -e -p "Введите URL для загрузки шрифта (демо
 font_frame=${font_frame:-https://api.jnngl.me/dist/font-frame.ttf}
 read -r -e -p "Введите репозиторий [git@github.com:JNNGL/monkebot.git]: " repo
 repo=${rep:-git@github.com:JNNGL/monkebot.git}
-read -r -e -p "Включать HTTP-сервер автоматически? [Y/n]: " http_enabled
-http_enabled=${http_enabled:-y}
-if [[ $http_enabled =~ ^[yY]$ ]]; then
-  while true; do
-    read -r -e -p "Порт для HTTP-сервера [80]: " http_port
-    http_port=${http_port:-80}
-    [[ $http_port =~ ^[0-9]+$ ]] || { echo "Укажите число"; continue; }
-    ((http_port >= 1 && http_port <= 65535)) && break
-    echo "Необходимо указать число от 1 до 65535"
-  done
-fi
 
 echo
 echo "| Путь установки: $install_path"
-echo "| API: $api_url"
 echo "| Токен: $token"
 echo "| Вебхук: $webhook"
 echo "| ID сервера: $guild"
@@ -49,11 +37,6 @@ echo "| ID ограниченной роли: $limited_role"
 echo "| URL шрифта: $font"
 echo "| URL шрифта (демотиватор): $font_frame"
 echo "| Репозиторий: $repo"
-if [[ $http_enabled =~ ^[yY]$ ]]; then
-  echo "| HTTP-сервер: включен, на порту $http_port"
-else
-  echo "| HTTP-сервер: отключен"
-fi
 while [[ -z $REPLY || ! ( $REPLY =~ ^[yY]$ ) ]]; do
   read -r -e -p "Начать установку MonkeBot? [y/n]: "
   if [[ $REPLY =~ ^[nN]$ ]]; then exit 0
@@ -67,7 +50,6 @@ mkdir -p "$install_path"
 cd "$install_path"
 
 echo "Подготовка файлов бота..."
-echo "$api_url" > api_url.txt
 echo "$guild" > guild.txt
 echo "$role" > role.txt
 echo "$limited_role" >> role.txt
@@ -93,12 +75,7 @@ curl -sS "https://api.jnngl.me/dist/deploy.sh" --output deploy.sh
 sed -i "s/__REPO__/$(echo "$repo" | sed -e 's/[\/&]/\\&/g')/g" deploy.sh
 sed -i "s/__WEBHOOK__/$(echo "$webhook" | sed -e 's/[\/&]/\\&/g')/g" deploy.sh
 sed -i "s/__PATH__/$(echo "$install_path" | sed -e 's/[\/&]/\\&/g')/g" deploy.sh
-if [[ $http_enabled =~ ^[yY]$ ]]; then
-  sed -i "s/__HTTP_ENABLED__/true/g" deploy.sh
-  sed -i "s/__HTTP_PORT__/$http_port/g" deploy.sh
-else
-  sed -i "s/__HTTP_ENABLED__/false/g" deploy.sh
-fi
+sed -i "s/__HTTP_ENABLED__/false/g" deploy.sh
 mkdir -p data/monke
 
 while [[ -z $REPLY || ! ( $REPLY =~ ^[nN]$ ) ]]; do
@@ -128,8 +105,3 @@ if [ -z "$(git config user.email)" ]; then git config --global user.email null@u
 
 echo "Запуск скрипта сборки..."
 bash deploy.sh
-
-# shellcheck disable=SC2206
-domain=(${api_url//\// })
-echo
-echo "Для завершения настройки добавьте A-запись $(hostname -I)для ${domain[1]}"

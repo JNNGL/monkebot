@@ -75,7 +75,6 @@ public class MonkeBot extends ListenerAdapter {
 
     private static final Font FONT;
     private static final Font FONT_FRAME;
-    private static final String API_URL;
     private static final long GUILD_ID;
     private static final long ROLE_ID;
     private static final long LIMITED_ROLE_ID;
@@ -87,7 +86,6 @@ public class MonkeBot extends ListenerAdapter {
 
             FONT = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font.ttf"));
             FONT_FRAME = Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("font-frame.ttf"));
-            API_URL = Files.readString(Path.of("api_url.txt")).trim();
             GUILD_ID = Long.parseLong(Files.readString(Path.of("guild.txt")).trim());
             List<Long> roles = Files.readAllLines(Path.of("role.txt"))
                     .stream().map(s -> Long.parseLong(s.trim()))
@@ -305,7 +303,7 @@ public class MonkeBot extends ListenerAdapter {
         }
     }
 
-    public String processMessage(Message message, boolean isFramed) throws Exception {
+    public byte[] processMessage(Message message, boolean isFramed) throws Exception {
         String[] args = message.getContentRaw().split(" ", 2);
         args = mapMessageArguments(message, args);
         if (args == null) {
@@ -315,8 +313,7 @@ public class MonkeBot extends ListenerAdapter {
         String url = args[0];
         String text = args[1];
 
-        String filename = System.currentTimeMillis() + ".gif";
-        try (FileOutputStream outputStream = new FileOutputStream("data/monke/" + filename);
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
              FrameReader reader = FrameReader.createFrameReader(new URL(url))) {
             BufferedImage overlay = renderOverlay(reader.getWidth(), reader.getHeight(), text, isFramed);
 
@@ -352,9 +349,9 @@ public class MonkeBot extends ListenerAdapter {
             }
 
             encoder.finish();
-        }
 
-        return API_URL + filename;
+            return outputStream.toByteArray();
+        }
     }
 
     public static String[] monkeTranslate(String text) {
@@ -467,9 +464,13 @@ public class MonkeBot extends ListenerAdapter {
         } else {
             CompletableFuture.supplyAsync(FutureUtil.withCompletionException(() -> processMessage(event.getMessage(), content.startsWith("!monkeframe "))))
                     .orTimeout(3, TimeUnit.MINUTES)
-                    .whenComplete((url, exception) -> event.getMessage().reply(exception != null
-                            ? "Не получилось добавить текст на говногифку: \n> " + exception.getMessage()
-                            : url).queue());
+                    .whenComplete((data, exception) -> {
+                        if (exception != null) {
+                            event.getMessage().reply("Не получилось добавить текст на говногифку: \n> " + exception.getMessage()).queue();
+                        } else {
+                            event.getMessage().replyFiles(FileUpload.fromData(data, "monke.gif")).queue();
+                        }
+                    });
         }
     }
 }
