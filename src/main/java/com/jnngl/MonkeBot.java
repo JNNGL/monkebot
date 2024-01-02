@@ -468,7 +468,13 @@ public class MonkeBot extends ListenerAdapter {
                         if (exception != null) {
                             event.getMessage().reply("Не получилось добавить текст на говногифку: \n> " + exception.getMessage()).queue();
                         } else {
-                            event.getMessage().replyFiles(FileUpload.fromData(data, "monke.gif")).queue();
+                            try {
+                                event.getMessage().replyFiles(FileUpload.fromData(data, "monke.gif")).queue();
+                            } catch (Throwable e) {
+                                if (e.getMessage().contains("Request entity too large")) {
+                                    event.getMessage().reply("ЭТА ГИФКА СЛИШКОМ БОЛЬШАЯ ЛИМИТ 25МБ У УА уа УА  УА У А У").queue();
+                                }
+                            }
                         }
                     });
         }
