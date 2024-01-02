@@ -34,6 +34,7 @@ public interface FrameReader extends AutoCloseable {
 
     static FrameReader createFrameReader(URL url) throws IOException {
         URLConnection connection = url.openConnection();
+        connection.setRequestProperty("Accept", "image/*");
         if (IIO_MIME_TYPES.contains(connection.getContentType())) {
             return new ImageIOFrameReader(connection);
         } else {
